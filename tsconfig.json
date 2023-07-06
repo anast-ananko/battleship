@@ -9,6 +9,6 @@
 		"moduleResolution": "node",
 		"noImplicitAny": true,
   },
-  "include": ["src/**/*", "./index.ts"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules"]
 }

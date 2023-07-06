@@ -7,7 +7,7 @@ if (process.env.NODE_ENV === 'production') {
 
 module.exports = {
   mode: mode,
-  entry: './index.ts',
+  entry: './src/index.ts',
   target: 'node',
   resolve: {
     extensions: ['.ts', '.js'],
