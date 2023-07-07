@@ -3,15 +3,17 @@ import WebSocket, { WebSocketServer } from 'ws';
 
 import { User } from '../user';
 import { Room } from '../room';
+import { BattleshipGame } from '../game';
 import { IUser } from '../interfaces/user';
 
 export const server = createServer({});
 const wss = new WebSocketServer({ server });
 
-const users: IUser[] = [];
+const users: User[] = [];
 const rooms: Room[] = [];
 
 const clients = new Map();
+const gameMap = new Map<number, BattleshipGame>();
 
 const updateRooms = () => {
   const data = rooms.map((item) => {
@@ -99,11 +101,12 @@ wss.on('connection', function connection(ws) {
       }
 
       if (rooms[dataObj.indexRoom].roomUsers.length === 2) {
-        const gameId = rooms[dataObj.indexRoom].createGame();
+        const game = rooms[dataObj.indexRoom].createGame();
+        gameMap.set(game.gameId, game);
 
         rooms[dataObj.indexRoom].roomUsers.forEach((item) => {
           const roomdata = {
-            idGame: gameId,
+            idGame: game.gameId,
             idPlayer: item.id,
           };
 
@@ -118,8 +121,99 @@ wss.on('connection', function connection(ws) {
           client.send(jsonString);
         });
 
-        rooms.splice(dataObj.indexRoom, 1);
+        //rooms.splice(dataObj.indexRoom, 1);
       }
+    }
+
+    if (messageObj.type === 'add_ships') {
+      const dataStr = messageObj.data.toString();
+      const dataObj = JSON.parse(dataStr);
+
+      const room = rooms.filter((item) => item.game?.gameId === dataObj.gameId);
+      room[0].addShips(dataObj.indexPlayer, dataObj.ships);
+
+      if (room[0].shipsForPlayer.length === 2) {
+        const game = gameMap.get(dataObj.gameId);
+        game!.currentPlayer = dataObj.indexPlayer;
+
+        const gameRoomId = room[0].roomId;
+
+        rooms[gameRoomId].roomUsers.forEach((item) => {
+          const data = {
+            currentPlayer: rooms[gameRoomId].roomUsers[0].id,
+          };
+          const dataString = JSON.stringify(data);
+          const jsonStr = JSON.stringify({
+            type: 'turn',
+            data: dataString,
+            id: 0,
+          });
+
+          if (item.id === room[0].shipsForPlayer[0].playerIndex) {
+            const data = {
+              ships: room[0].shipsForPlayer[item.id],
+              currentPlayerIndex: item.id,
+            };
+            const dataString = JSON.stringify(data);
+            const jsonString = JSON.stringify({
+              type: 'start_game',
+              data: dataString,
+              id: 0,
+            });
+
+            const client = clients.get(item.id);
+            client.send(jsonString);
+            client.send(jsonStr);
+          }
+
+          if (item.id === room[0].shipsForPlayer[1].playerIndex) {
+            const data = {
+              ships: room[0].shipsForPlayer[item.id].ships,
+              currentPlayerIndex: item.id,
+            };
+            const dataString = JSON.stringify(data);
+            const jsonString = JSON.stringify({
+              type: 'start_game',
+              data: dataString,
+              id: 0,
+            });
+
+            const client = clients.get(item.id);
+            client.send(jsonString);
+            client.send(jsonStr);
+          }
+        });
+      }
+    }
+
+    if (messageObj.type === 'attack') {
+      const dataStr = messageObj.data.toString();
+      const dataObj = JSON.parse(dataStr);
+
+      const game = gameMap.get(dataObj.gameId);
+      game!.currentPlayer = dataObj.indexPlayer;
+
+      const room = rooms.filter((item) => item.game?.gameId === dataObj.gameId);
+      const gameRoomId = room[0].roomId;
+
+      const nextPlayer = rooms[gameRoomId].roomUsers.filter((item) => {
+        return item.id !== game?.currentPlayer;
+      });
+
+      rooms[gameRoomId].roomUsers.forEach((item) => {
+        const data = {
+          currentPlayer: nextPlayer[0].id,
+        };
+        const dataString = JSON.stringify(data);
+        const jsonString = JSON.stringify({
+          type: 'turn',
+          data: dataString,
+          id: 0,
+        });
+
+        const client = clients.get(item.id);
+        client.send(jsonString);
+      });
     }
   });
 });

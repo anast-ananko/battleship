@@ -16,9 +16,15 @@ interface IShipData {
 export class BattleshipGame {
   static id = 0;
   gameId: number;
+  currentPlayer: number | null = null;
+  ships: IShipData[] = [];
 
   constructor() {
     this.gameId = BattleshipGame.id;
     BattleshipGame.id++;
+  }
+
+  setCurrentPlayer(id: number) {
+    this.currentPlayer = id;
   }
 }
