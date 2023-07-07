@@ -7,19 +7,9 @@ import { IUser, Room } from '../room';
 export const server = createServer({});
 const wss = new WebSocketServer({ server });
 
-// interface IData<T> {
-//   type: string;
-//   data: T;
-//   id: number;
-// }
-
 interface IRegFromFront {
   name: string;
   password: string;
-}
-
-interface IRoomData {
-  indexRoom: number;
 }
 
 interface IRoom {
@@ -56,8 +46,11 @@ const updateRooms = () => {
   });
 };
 
+const clients = new Map();
+
 wss.on('connection', function connection(ws) {
   let num = 0;
+
   ws.on('error', console.error);
 
   ws.on('message', function message(data) {
@@ -71,6 +64,7 @@ wss.on('connection', function connection(ws) {
       const user = new User(userObj.name, userObj.password);
       num = user.id;
       users.push(user);
+      clients.set(num, ws);
 
       const userData = {
         name: userObj.name,
@@ -100,36 +94,37 @@ wss.on('connection', function connection(ws) {
     if (messageObj.type === 'add_user_to_room') {
       const roomStr = data.toString();
       const roomObj = JSON.parse(roomStr);
-      console.log(roomObj.data);
 
-      // const dataStr = roomObj.data.toString();
-      // const dataObj: number = JSON.parse(dataStr);
-      // rooms[dataObj].addUser(users[num]);
-      // console.log(dataObj);
-      //updateRooms();
-      // if (rooms[dataObj.indexRoom].roomUsers.length === 2) {
-      //   const roomdata = {
-      //     idGame: rooms[dataObj.indexRoom].game,
-      //     idPlayer: users[1],
-      //   };
-      //   const dataString = JSON.stringify(roomdata);
-      //   const jsonString = JSON.stringify({
-      //     type: 'create_game',
-      //     data: dataString,
-      //     id: 0,
-      //   });
-      //   ws.send(jsonString);
-      // }
+      const dataStr = roomObj.data.toString();
+      const dataObj = JSON.parse(dataStr);
+
+      if (rooms[dataObj.indexRoom].roomUsers.length < 2) {
+        const roomUsers = rooms[dataObj.indexRoom].roomUsers;
+        const existingUser = roomUsers.find((user) => user.id === users[num].id);
+        if (!existingUser) {
+          rooms[dataObj.indexRoom].addUser(users[num]);
+        }
+      }
+
+      if (rooms[dataObj.indexRoom].roomUsers.length === 2) {
+        const gameId = rooms[dataObj.indexRoom].createGame();
+        rooms[dataObj.indexRoom].roomUsers.forEach((item) => {
+          const roomdata = {
+            idGame: gameId,
+            idPlayer: item.id,
+          };
+          const dataString = JSON.stringify(roomdata);
+          const jsonString = JSON.stringify({
+            type: 'create_game',
+            data: dataString,
+            id: 0,
+          });
+
+          const client = clients.get(item.id);
+          client.send(jsonString);
+        });
+        rooms.splice(dataObj.indexRoom, 1);
+      }
     }
   });
 });
-
-//const data = [{ roomId: rooms[0].roomId, roomUsers: rooms[0].roomUsers }];
-// const data = {
-//   rooms: rooms.map((item: IRoom) => {
-//     return {
-//       roomId: item.roomId,
-//       roomUsers: JSON.stringify(item.roomUsers),
-//     };
-//   }),
-// };

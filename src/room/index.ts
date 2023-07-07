@@ -24,6 +24,7 @@ export class Room {
 
   createGame() {
     this.game = new BattleshipGame();
+    return this.game.gameId;
   }
 
   addUser(user: IUser) {
