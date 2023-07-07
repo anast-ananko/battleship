@@ -1,8 +1,3 @@
-export interface IUser {
-  name: string;
-  password: string;
-  id: number;
-}
 export class User {
   static id = 0;
   name: string;

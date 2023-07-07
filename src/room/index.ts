@@ -1,15 +1,5 @@
 import { BattleshipGame } from '../game';
-
-export interface IUser {
-  name: string;
-  password: string;
-  id: number;
-}
-
-// interface IRoom {
-//   roomId: number;
-//   roomUsers: IUser[];
-// }
+import { IUser } from '../interfaces/user';
 
 export class Room {
   static id = 0;
