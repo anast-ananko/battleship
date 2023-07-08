@@ -1,8 +1,3 @@
-enum Player {
-  Player1 = 'Player 1',
-  Player2 = 'Player 2',
-}
-
 interface IShipData {
   position: {
     x: number;
@@ -13,10 +8,16 @@ interface IShipData {
   type: 'small' | 'medium' | 'large' | 'huge';
 }
 
+interface IShipsPlayer {
+  playerIndex: number;
+  ships: IShipData[];
+}
+
 export class BattleshipGame {
   static id = 0;
   gameId: number;
   currentPlayer: number | null = null;
+  shipsForPlayer: IShipsPlayer[] = [];
   ships: IShipData[] = [];
 
   constructor() {
@@ -26,5 +27,12 @@ export class BattleshipGame {
 
   setCurrentPlayer(id: number) {
     this.currentPlayer = id;
+  }
+
+  addShips(idPlayer: number, ships: IShipData[]) {
+    this.shipsForPlayer.push({
+      playerIndex: idPlayer,
+      ships,
+    });
   }
 }

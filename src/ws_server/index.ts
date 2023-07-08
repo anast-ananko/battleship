@@ -130,9 +130,11 @@ wss.on('connection', function connection(ws) {
       const dataObj = JSON.parse(dataStr);
 
       const room = rooms.filter((item) => item.game?.gameId === dataObj.gameId);
-      room[0].addShips(dataObj.indexPlayer, dataObj.ships);
 
-      if (room[0].shipsForPlayer.length === 2) {
+      const game = gameMap.get(dataObj.gameId);
+      game?.addShips(dataObj.indexPlayer, dataObj.ships);
+
+      if (game?.shipsForPlayer.length === 2) {
         const game = gameMap.get(dataObj.gameId);
         game!.currentPlayer = dataObj.indexPlayer;
 
@@ -149,9 +151,9 @@ wss.on('connection', function connection(ws) {
             id: 0,
           });
 
-          if (item.id === room[0].shipsForPlayer[0].playerIndex) {
+          if (item.id === game?.shipsForPlayer[0].playerIndex) {
             const data = {
-              ships: room[0].shipsForPlayer[item.id],
+              ships: game?.shipsForPlayer[item.id].ships,
               currentPlayerIndex: item.id,
             };
             const dataString = JSON.stringify(data);
@@ -166,9 +168,9 @@ wss.on('connection', function connection(ws) {
             client.send(jsonStr);
           }
 
-          if (item.id === room[0].shipsForPlayer[1].playerIndex) {
+          if (item.id === game?.shipsForPlayer[1].playerIndex) {
             const data = {
-              ships: room[0].shipsForPlayer[item.id].ships,
+              ships: game?.shipsForPlayer[item.id].ships,
               currentPlayerIndex: item.id,
             };
             const dataString = JSON.stringify(data);
