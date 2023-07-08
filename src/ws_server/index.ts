@@ -55,17 +55,27 @@ wss.on('connection', function connection(ws) {
       const dataStr = messageObj.data.toString();
       const dataObj = JSON.parse(dataStr);
 
-      const user = new User(dataObj.name, dataObj.password);
-      usersMap.set(user.id, user);
+      let userExists = false;
 
-      connectionNumber = user.id;
-      clients.set(connectionNumber, ws);
+      for (const user of usersMap.values()) {
+        if (user.name === dataObj.name) {
+          userExists = true;
+        }
+      }
+
+      if (!userExists) {
+        const user = new User(dataObj.name, dataObj.password);
+        usersMap.set(user.id, user);
+
+        connectionNumber = user.id;
+        clients.set(connectionNumber, ws);
+      }
 
       const newData = {
         name: dataObj.name,
         index: dataObj.password,
-        error: false,
-        errorText: '',
+        error: userExists,
+        errorText: userExists ? 'User with the same name already exists' : '',
       };
 
       const dataString = JSON.stringify(newData);
