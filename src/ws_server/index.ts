@@ -5,21 +5,21 @@ import { User } from '../user';
 import { Room } from '../room';
 import { BattleshipGame } from '../game';
 import { IUser } from '../interfaces/user';
+import { getKeyByValue } from '../utils/getKeyByValue';
 
 export const server = createServer({});
 const wss = new WebSocketServer({ server });
 
-const users: User[] = [];
-const rooms: Room[] = [];
-
 const clients = new Map();
 const gameMap = new Map<number, BattleshipGame>();
+const roomsMap = new Map<number, Room>();
+const usersMap = new Map<number, User>();
 
 const updateRooms = () => {
-  const data = rooms.map((item) => {
+  const data = Array.from(roomsMap).map((item) => {
     return {
-      roomId: item.roomId,
-      roomUsers: item.roomUsers.map((user: IUser) => {
+      roomId: item[1].roomId,
+      roomUsers: item[1].roomUsers.map((user: IUser) => {
         return {
           name: user.name,
           index: user.id,
@@ -43,6 +43,7 @@ const updateRooms = () => {
 
 wss.on('connection', function connection(ws) {
   let connectionNumber = 0;
+  let roomNumber = 0;
 
   ws.on('error', console.error);
 
@@ -55,7 +56,7 @@ wss.on('connection', function connection(ws) {
       const dataObj = JSON.parse(dataStr);
 
       const user = new User(dataObj.name, dataObj.password);
-      users.push(user);
+      usersMap.set(user.id, user);
 
       connectionNumber = user.id;
       clients.set(connectionNumber, ws);
@@ -81,8 +82,10 @@ wss.on('connection', function connection(ws) {
 
     if (messageObj.type === 'create_room') {
       const room = new Room();
-      room.addUser(users[connectionNumber]);
-      rooms.push(room);
+      const user = usersMap.get(connectionNumber);
+      if (user) room.addUser(user);
+      roomNumber = room.roomId;
+      roomsMap.set(roomNumber, room);
 
       updateRooms();
     }
@@ -91,20 +94,23 @@ wss.on('connection', function connection(ws) {
       const dataStr = messageObj.data.toString();
       const dataObj = JSON.parse(dataStr);
 
-      if (rooms[dataObj.indexRoom].roomUsers.length < 2) {
-        const roomUsers = rooms[dataObj.indexRoom].roomUsers;
-        const existingUser = roomUsers.find((user) => user.id === users[connectionNumber].id);
+      if (roomsMap.get(dataObj.indexRoom)!.roomUsers.length < 2) {
+        const roomUsers = roomsMap.get(dataObj.indexRoom)!.roomUsers;
+        const existingUser = roomUsers.find(
+          (user) => user.id === usersMap.get(connectionNumber)?.id
+        );
 
         if (!existingUser) {
-          rooms[dataObj.indexRoom].addUser(users[connectionNumber]);
+          const user = usersMap.get(connectionNumber);
+          if (user) roomsMap.get(dataObj.indexRoom)!.addUser(user);
         }
       }
 
-      if (rooms[dataObj.indexRoom].roomUsers.length === 2) {
-        const game = rooms[dataObj.indexRoom].createGame();
+      if (roomsMap.get(dataObj.indexRoom)!.roomUsers.length === 2) {
+        const game = roomsMap.get(dataObj.indexRoom)!.createGame();
         gameMap.set(game.gameId, game);
 
-        rooms[dataObj.indexRoom].roomUsers.forEach((item) => {
+        roomsMap.get(dataObj.indexRoom)!.roomUsers.forEach((item) => {
           const roomdata = {
             idGame: game.gameId,
             idPlayer: item.id,
@@ -120,8 +126,6 @@ wss.on('connection', function connection(ws) {
           const client = clients.get(item.id);
           client.send(jsonString);
         });
-
-        //rooms.splice(dataObj.indexRoom, 1);
       }
     }
 
@@ -129,7 +133,7 @@ wss.on('connection', function connection(ws) {
       const dataStr = messageObj.data.toString();
       const dataObj = JSON.parse(dataStr);
 
-      const room = rooms.filter((item) => item.game?.gameId === dataObj.gameId);
+      const room = roomsMap.get(dataObj.gameId);
 
       const game = gameMap.get(dataObj.gameId);
       game?.addShips(dataObj.indexPlayer, dataObj.ships);
@@ -138,11 +142,11 @@ wss.on('connection', function connection(ws) {
         const game = gameMap.get(dataObj.gameId);
         game!.currentPlayer = dataObj.indexPlayer;
 
-        const gameRoomId = room[0].roomId;
+        const gameRoomId = room!.roomId;
 
-        rooms[gameRoomId].roomUsers.forEach((item) => {
+        roomsMap.get(gameRoomId)!.roomUsers.forEach((item) => {
           const data = {
-            currentPlayer: rooms[gameRoomId].roomUsers[0].id,
+            currentPlayer: roomsMap.get(gameRoomId)!.roomUsers[0].id,
           };
           const dataString = JSON.stringify(data);
           const jsonStr = JSON.stringify({
@@ -195,14 +199,14 @@ wss.on('connection', function connection(ws) {
       const game = gameMap.get(dataObj.gameId);
       game!.currentPlayer = dataObj.indexPlayer;
 
-      const room = rooms.filter((item) => item.game?.gameId === dataObj.gameId);
-      const gameRoomId = room[0].roomId;
+      const room = roomsMap.get(dataObj.gameId);
+      const gameRoomId = room!.roomId;
 
-      const nextPlayer = rooms[gameRoomId].roomUsers.filter((item) => {
+      const nextPlayer = roomsMap.get(gameRoomId)!.roomUsers.filter((item) => {
         return item.id !== game?.currentPlayer;
       });
 
-      rooms[gameRoomId].roomUsers.forEach((item) => {
+      roomsMap.get(gameRoomId)!.roomUsers.forEach((item) => {
         const data = {
           currentPlayer: nextPlayer[0].id,
         };
@@ -217,5 +221,18 @@ wss.on('connection', function connection(ws) {
         client.send(jsonString);
       });
     }
+  });
+
+  ws.on('close', () => {
+    const userId = getKeyByValue(clients, ws);
+
+    for (const [roomId, room] of roomsMap) {
+      room.roomUsers = room.roomUsers.filter((user) => user.id !== userId);
+      if (room.roomUsers.length === 0) {
+        roomsMap.delete(roomId);
+      }
+    }
+    usersMap.delete(userId);
+    updateRooms();
   });
 });
