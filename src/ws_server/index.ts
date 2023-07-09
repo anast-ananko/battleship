@@ -5,6 +5,7 @@ import { User } from '../user';
 import { Room } from '../room';
 import { BattleshipGame } from '../game';
 import { IUser } from '../interfaces/user';
+import { IWinner } from '../interfaces/winner';
 import { getKeyByValue } from '../utils/getKeyByValue';
 
 export const server = createServer({});
@@ -14,6 +15,7 @@ const clients = new Map();
 const gameMap = new Map<number, BattleshipGame>();
 const roomsMap = new Map<number, Room>();
 const usersMap = new Map<number, User>();
+const winnersMap = new Map<number, IWinner>();
 
 const updateRooms = () => {
   const data = Array.from(roomsMap).map((item) => {
@@ -27,9 +29,30 @@ const updateRooms = () => {
       }),
     };
   });
+
   const dataString = JSON.stringify(data);
   const jsonString = JSON.stringify({
     type: 'update_room',
+    data: dataString,
+    id: 0,
+  });
+
+  wss.clients.forEach(function each(client) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(jsonString);
+    }
+  });
+};
+
+const updateWinners = () => {
+  const data = [];
+  for (const winner of winnersMap.values()) {
+    data.push({ name: winner.winner.name, wins: winner.wins });
+  }
+
+  const dataString = JSON.stringify(data);
+  const jsonString = JSON.stringify({
+    type: 'update_winners',
     data: dataString,
     id: 0,
   });
@@ -66,6 +89,7 @@ wss.on('connection', function connection(ws) {
       if (!userExists) {
         const user = new User(dataObj.name, dataObj.password);
         usersMap.set(user.id, user);
+        winnersMap.set(user.id, { winner: user, wins: 0 });
 
         connectionNumber = user.id;
         clients.set(connectionNumber, ws);
@@ -88,6 +112,7 @@ wss.on('connection', function connection(ws) {
       ws.send(jsonString);
 
       updateRooms();
+      updateWinners();
     }
 
     if (messageObj.type === 'create_room') {
@@ -98,6 +123,7 @@ wss.on('connection', function connection(ws) {
       roomsMap.set(roomNumber, room);
 
       updateRooms();
+      updateWinners();
     }
 
     if (messageObj.type === 'add_user_to_room') {
@@ -259,6 +285,10 @@ wss.on('connection', function connection(ws) {
       }
     }
     usersMap.delete(userId);
+    winnersMap.delete(userId);
+    clients.delete(userId);
+
     updateRooms();
+    updateWinners();
   });
 });
