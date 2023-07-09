@@ -167,7 +167,7 @@ wss.on('connection', function connection(ws) {
 
           if (item.id === game?.shipsForPlayer[0].playerIndex) {
             const data = {
-              ships: game?.shipsForPlayer[item.id].ships,
+              ships: game?.shipsForPlayer[0].ships,
               currentPlayerIndex: item.id,
             };
             const dataString = JSON.stringify(data);
@@ -184,7 +184,7 @@ wss.on('connection', function connection(ws) {
 
           if (item.id === game?.shipsForPlayer[1].playerIndex) {
             const data = {
-              ships: game?.shipsForPlayer[item.id].ships,
+              ships: game?.shipsForPlayer[1].ships,
               currentPlayerIndex: item.id,
             };
             const dataString = JSON.stringify(data);
@@ -207,18 +207,32 @@ wss.on('connection', function connection(ws) {
       const dataObj = JSON.parse(dataStr);
 
       const game = gameMap.get(dataObj.gameId);
-      game!.currentPlayer = dataObj.indexPlayer;
+      game!.setCurrentPlayer(dataObj.indexPlayer);
 
       const room = roomsMap.get(dataObj.gameId);
-      const gameRoomId = room!.roomId;
+      //const gameRoomId = room!.roomId;
 
-      const nextPlayer = roomsMap.get(gameRoomId)!.roomUsers.filter((item) => {
+      const status = game?.attack(dataObj.x, dataObj.y);
+
+      const data = {
+        position: { x: dataObj.x, y: dataObj.y },
+        currentPlayer: game!.currentPlayer,
+        status,
+      };
+      const attackString = JSON.stringify(data);
+      const jsonAttackString = JSON.stringify({
+        type: 'attack',
+        data: attackString,
+        id: 0,
+      });
+
+      const nextPlayer = roomsMap.get(room!.roomId)!.roomUsers.filter((item) => {
         return item.id !== game?.currentPlayer;
       });
 
-      roomsMap.get(gameRoomId)!.roomUsers.forEach((item) => {
+      roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
         const data = {
-          currentPlayer: nextPlayer[0].id,
+          currentPlayer: status === 'miss' ? nextPlayer[0].id : game!.currentPlayer,
         };
         const dataString = JSON.stringify(data);
         const jsonString = JSON.stringify({
@@ -228,6 +242,7 @@ wss.on('connection', function connection(ws) {
         });
 
         const client = clients.get(item.id);
+        client.send(jsonAttackString);
         client.send(jsonString);
       });
     }
