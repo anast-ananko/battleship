@@ -31,7 +31,6 @@ export class BattleshipGame {
   currentPlayer: number | null = null;
   shipsForPlayer: IShipsPlayer[] = [];
   fieldsForPlayer: IField[] = [];
-  //ships: IShipData[] = [];
 
   constructor() {
     this.gameId = BattleshipGame.id;
@@ -76,21 +75,22 @@ export class BattleshipGame {
     const fieldData = this.fieldsForPlayer.find((data) => data.playerIndex !== this.currentPlayer);
 
     const cell = fieldData?.field[y][x];
-
     if (cell === InfoField.None) {
       fieldData!.field[y][x] = InfoField.Miss;
       return 'miss';
-    } else if (fieldData!.field[y][x] === InfoField.Healthy) {
+    } else if (cell === InfoField.Healthy) {
       fieldData!.field[y][x] = InfoField.Hit;
       if (this.checkShipKilled(fieldData!.field, x, y)) {
         return 'killed';
       } else {
         return 'shot';
       }
+    } else if (cell === InfoField.Hit) {
+      return 'Already attacked';
     }
   }
 
-  checkShipKilled(gameBoard: string[][], x: number, y: number): boolean {
+  private checkShipKilled(gameBoard: string[][], x: number, y: number): boolean {
     const visited: boolean[][] = [];
 
     for (let i = 0; i < 10; i++) {

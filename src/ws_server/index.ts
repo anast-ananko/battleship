@@ -210,41 +210,42 @@ wss.on('connection', function connection(ws) {
       game!.setCurrentPlayer(dataObj.indexPlayer);
 
       const room = roomsMap.get(dataObj.gameId);
-      //const gameRoomId = room!.roomId;
 
       const status = game?.attack(dataObj.x, dataObj.y);
 
-      const data = {
-        position: { x: dataObj.x, y: dataObj.y },
-        currentPlayer: game!.currentPlayer,
-        status,
-      };
-      const attackString = JSON.stringify(data);
-      const jsonAttackString = JSON.stringify({
-        type: 'attack',
-        data: attackString,
-        id: 0,
-      });
-
-      const nextPlayer = roomsMap.get(room!.roomId)!.roomUsers.filter((item) => {
-        return item.id !== game?.currentPlayer;
-      });
-
-      roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
+      if (status !== 'Already attacked') {
         const data = {
-          currentPlayer: status === 'miss' ? nextPlayer[0].id : game!.currentPlayer,
+          position: { x: dataObj.x, y: dataObj.y },
+          currentPlayer: game!.currentPlayer,
+          status,
         };
-        const dataString = JSON.stringify(data);
-        const jsonString = JSON.stringify({
-          type: 'turn',
-          data: dataString,
+        const attackString = JSON.stringify(data);
+        const jsonAttackString = JSON.stringify({
+          type: 'attack',
+          data: attackString,
           id: 0,
         });
 
-        const client = clients.get(item.id);
-        client.send(jsonAttackString);
-        client.send(jsonString);
-      });
+        const nextPlayer = roomsMap.get(room!.roomId)!.roomUsers.filter((item) => {
+          return item.id !== game?.currentPlayer;
+        });
+
+        roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
+          const data = {
+            currentPlayer: status === 'miss' ? nextPlayer[0].id : game!.currentPlayer,
+          };
+          const dataString = JSON.stringify(data);
+          const jsonString = JSON.stringify({
+            type: 'turn',
+            data: dataString,
+            id: 0,
+          });
+
+          const client = clients.get(item.id);
+          client.send(jsonAttackString);
+          client.send(jsonString);
+        });
+      }
     }
   });
 
