@@ -237,13 +237,13 @@ wss.on('connection', function connection(ws) {
 
       const room = roomsMap.get(dataObj.gameId);
 
-      const status = game?.attack(dataObj.x, dataObj.y);
+      const result = game?.attack(dataObj.x, dataObj.y);
 
-      if (status !== 'Already attacked') {
+      if (result !== 'Already attacked') {
         const data = {
           position: { x: dataObj.x, y: dataObj.y },
           currentPlayer: game!.currentPlayer,
-          status,
+          status: result,
         };
         const attackString = JSON.stringify(data);
         const jsonAttackString = JSON.stringify({
@@ -258,7 +258,53 @@ wss.on('connection', function connection(ws) {
 
         roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
           const data = {
-            currentPlayer: status === 'miss' ? nextPlayer[0].id : game!.currentPlayer,
+            currentPlayer: result === 'miss' ? nextPlayer[0].id : game!.currentPlayer,
+          };
+          const dataString = JSON.stringify(data);
+          const jsonString = JSON.stringify({
+            type: 'turn',
+            data: dataString,
+            id: 0,
+          });
+
+          const client = clients.get(item.id);
+          client.send(jsonAttackString);
+          client.send(jsonString);
+        });
+      }
+    }
+
+    if (messageObj.type === 'randomAttack') {
+      const dataStr = messageObj.data.toString();
+      const dataObj = JSON.parse(dataStr);
+
+      const game = gameMap.get(dataObj.gameId);
+      game!.setCurrentPlayer(dataObj.indexPlayer);
+
+      const room = roomsMap.get(dataObj.gameId);
+
+      const result = game?.randomAttack(dataObj.indexPlayer);
+
+      if (result!.status !== 'Already attacked') {
+        const data = {
+          position: { x: result!.x, y: result!.y },
+          currentPlayer: game!.currentPlayer,
+          status: result!.status,
+        };
+        const attackString = JSON.stringify(data);
+        const jsonAttackString = JSON.stringify({
+          type: 'attack',
+          data: attackString,
+          id: 0,
+        });
+
+        const nextPlayer = roomsMap.get(room!.roomId)!.roomUsers.filter((item) => {
+          return item.id !== game?.currentPlayer;
+        });
+
+        roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
+          const data = {
+            currentPlayer: result!.status === 'miss' ? nextPlayer[0].id : game!.currentPlayer,
           };
           const dataString = JSON.stringify(data);
           const jsonString = JSON.stringify({
@@ -284,6 +330,7 @@ wss.on('connection', function connection(ws) {
         roomsMap.delete(roomId);
       }
     }
+
     usersMap.delete(userId);
     winnersMap.delete(userId);
     clients.delete(userId);

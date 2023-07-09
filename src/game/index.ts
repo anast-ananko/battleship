@@ -23,6 +23,7 @@ enum InfoField {
   Healthy = 'healthy',
   Hit = 'hit',
   Miss = 'miss',
+  Killed = 'killed',
 }
 
 export class BattleshipGame {
@@ -81,6 +82,7 @@ export class BattleshipGame {
     } else if (cell === InfoField.Healthy) {
       fieldData!.field[y][x] = InfoField.Hit;
       if (this.checkShipKilled(fieldData!.field, x, y)) {
+        fieldData!.field[y][x] = InfoField.Killed;
         return 'killed';
       } else {
         return 'shot';
@@ -122,5 +124,33 @@ export class BattleshipGame {
       return true;
     }
     return dfs(x, y);
+  }
+
+  randomAttack(idPlayer: number) {
+    const fieldData = this.fieldsForPlayer.find((data) => data.playerIndex !== idPlayer);
+
+    const rows = fieldData?.field.length;
+    const columns = fieldData?.field[0].length;
+
+    const allCoordinates = [];
+    for (let i = 0; i < rows!; i++) {
+      for (let j = 0; j < columns!; j++) {
+        allCoordinates.push({ x: j, y: i });
+      }
+    }
+
+    const availableCoordinates = allCoordinates.filter(
+      ({ x, y }) =>
+        fieldData?.field[y][x] !== 'miss' ||
+        (fieldData?.field[y][x] !== 'shot' && fieldData?.field[y][x] !== 'killed')
+    );
+
+    if (availableCoordinates.length > 0) {
+      const randomIndex = Math.floor(Math.random() * availableCoordinates.length);
+      const { x, y } = availableCoordinates[randomIndex];
+
+      const status = this.attack(x, y);
+      return { status, x, y };
+    }
   }
 }
