@@ -11,8 +11,8 @@ import { getKeyByValue } from '../utils/getKeyByValue';
 export const server = createServer({});
 const wss = new WebSocketServer({ server });
 
-const clients = new Map();
-const gameMap = new Map<number, BattleshipGame>();
+const clientsMap = new Map();
+const gamesMap = new Map<number, BattleshipGame>();
 const roomsMap = new Map<number, Room>();
 const usersMap = new Map<number, User>();
 const winnersMap = new Map<number, IWinner>();
@@ -92,7 +92,7 @@ wss.on('connection', function connection(ws) {
         winnersMap.set(user.id, { winner: user, wins: 0 });
 
         connectionNumber = user.id;
-        clients.set(connectionNumber, ws);
+        clientsMap.set(connectionNumber, ws);
       }
 
       const newData = {
@@ -144,7 +144,7 @@ wss.on('connection', function connection(ws) {
 
       if (roomsMap.get(dataObj.indexRoom)!.roomUsers.length === 2) {
         const game = roomsMap.get(dataObj.indexRoom)!.createGame();
-        gameMap.set(game.gameId, game);
+        gamesMap.set(game.gameId, game);
 
         roomsMap.get(dataObj.indexRoom)!.roomUsers.forEach((item) => {
           const roomdata = {
@@ -159,7 +159,7 @@ wss.on('connection', function connection(ws) {
             id: 0,
           });
 
-          const client = clients.get(item.id);
+          const client = clientsMap.get(item.id);
           client.send(jsonString);
         });
       }
@@ -171,11 +171,11 @@ wss.on('connection', function connection(ws) {
 
       const room = roomsMap.get(dataObj.gameId);
 
-      const game = gameMap.get(dataObj.gameId);
+      const game = gamesMap.get(dataObj.gameId);
       game?.addShips(dataObj.indexPlayer, dataObj.ships);
 
       if (game?.shipsForPlayer.length === 2) {
-        const game = gameMap.get(dataObj.gameId);
+        const game = gamesMap.get(dataObj.gameId);
         game!.currentPlayer = dataObj.indexPlayer;
 
         const gameRoomId = room!.roomId;
@@ -203,7 +203,7 @@ wss.on('connection', function connection(ws) {
               id: 0,
             });
 
-            const client = clients.get(item.id);
+            const client = clientsMap.get(item.id);
             client.send(jsonString);
             client.send(jsonStr);
           }
@@ -220,7 +220,7 @@ wss.on('connection', function connection(ws) {
               id: 0,
             });
 
-            const client = clients.get(item.id);
+            const client = clientsMap.get(item.id);
             client.send(jsonString);
             client.send(jsonStr);
           }
@@ -232,7 +232,7 @@ wss.on('connection', function connection(ws) {
       const dataStr = messageObj.data.toString();
       const dataObj = JSON.parse(dataStr);
 
-      const game = gameMap.get(dataObj.gameId);
+      const game = gamesMap.get(dataObj.gameId);
 
       if (game?.currentPlayer === dataObj.indexPlayer) {
         const room = roomsMap.get(dataObj.gameId);
@@ -267,7 +267,7 @@ wss.on('connection', function connection(ws) {
               id: 0,
             });
 
-            const client = clients.get(item.id);
+            const client = clientsMap.get(item.id);
             client.send(jsonAttackString);
             client.send(jsonString);
           });
@@ -294,7 +294,7 @@ wss.on('connection', function connection(ws) {
                 id: 0,
               });
 
-              const client = clients.get(item.id);
+              const client = clientsMap.get(item.id);
               client.send(jsonString);
             });
           });
@@ -313,7 +313,7 @@ wss.on('connection', function connection(ws) {
                 id: 0,
               });
 
-              const client = clients.get(item.id);
+              const client = clientsMap.get(item.id);
               client.send(jsonString);
             });
           });
@@ -337,7 +337,7 @@ wss.on('connection', function connection(ws) {
           });
 
           roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
-            const client = clients.get(item.id);
+            const client = clientsMap.get(item.id);
             client.send(jsonString);
           });
 
@@ -352,7 +352,7 @@ wss.on('connection', function connection(ws) {
       const dataStr = messageObj.data.toString();
       const dataObj = JSON.parse(dataStr);
 
-      const game = gameMap.get(dataObj.gameId);
+      const game = gamesMap.get(dataObj.gameId);
 
       if (game?.currentPlayer === dataObj.indexPlayer) {
         const room = roomsMap.get(dataObj.gameId);
@@ -387,7 +387,7 @@ wss.on('connection', function connection(ws) {
               id: 0,
             });
 
-            const client = clients.get(item.id);
+            const client = clientsMap.get(item.id);
             client.send(jsonAttackString);
             client.send(jsonString);
           });
@@ -400,7 +400,7 @@ wss.on('connection', function connection(ws) {
   });
 
   ws.on('close', () => {
-    const userId = getKeyByValue(clients, ws);
+    const userId = getKeyByValue(clientsMap, ws);
 
     for (const [roomId, room] of roomsMap) {
       room.roomUsers = room.roomUsers.filter((user) => user.id !== userId);
@@ -411,7 +411,7 @@ wss.on('connection', function connection(ws) {
 
     usersMap.delete(userId);
     winnersMap.delete(userId);
-    clients.delete(userId);
+    clientsMap.delete(userId);
 
     updateRooms();
     updateWinners();
