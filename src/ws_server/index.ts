@@ -6,6 +6,7 @@ import { Room } from '../room';
 import { BattleshipGame } from '../game';
 import { IUser } from '../interfaces/user';
 import { IWinner } from '../interfaces/winner';
+import { Commands } from '../interfaces/server';
 import { getKeyByValue } from '../utils/getKeyByValue';
 
 export const server = createServer({});
@@ -18,10 +19,10 @@ const usersMap = new Map<number, User>();
 const winnersMap = new Map<number, IWinner>();
 
 const updateRooms = () => {
-  const data = Array.from(roomsMap).map((item) => {
+  const data = Object.entries(roomsMap).map(([roomId, room]) => {
     return {
-      roomId: item[1].roomId,
-      roomUsers: item[1].roomUsers.map((user: IUser) => {
+      roomId,
+      roomUsers: room.roomUsers.map((user: IUser) => {
         return {
           name: user.name,
           index: user.id,
@@ -32,7 +33,7 @@ const updateRooms = () => {
 
   const dataString = JSON.stringify(data);
   const jsonString = JSON.stringify({
-    type: 'update_room',
+    type: Commands.Update_room,
     data: dataString,
     id: 0,
   });
@@ -52,7 +53,7 @@ const updateWinners = () => {
 
   const dataString = JSON.stringify(data);
   const jsonString = JSON.stringify({
-    type: 'update_winners',
+    type: Commands.Update_winners,
     data: dataString,
     id: 0,
   });
@@ -74,7 +75,7 @@ wss.on('connection', function connection(ws) {
     const messageStr = message.toString();
     const messageObj = JSON.parse(messageStr);
 
-    if (messageObj.type === 'reg') {
+    if (messageObj.type === Commands.Reg) {
       const dataStr = messageObj.data.toString();
       const dataObj = JSON.parse(dataStr);
 
@@ -104,7 +105,7 @@ wss.on('connection', function connection(ws) {
 
       const dataString = JSON.stringify(newData);
       const jsonString = JSON.stringify({
-        type: 'reg',
+        type: Commands.Reg,
         data: dataString,
         id: 0,
       });
@@ -115,7 +116,7 @@ wss.on('connection', function connection(ws) {
       updateWinners();
     }
 
-    if (messageObj.type === 'create_room') {
+    if (messageObj.type === Commands.Create_room) {
       const room = new Room();
       const user = usersMap.get(connectionNumber);
       if (user) room.addUser(user);
@@ -126,7 +127,7 @@ wss.on('connection', function connection(ws) {
       updateWinners();
     }
 
-    if (messageObj.type === 'add_user_to_room') {
+    if (messageObj.type === Commands.Add_user_to_room) {
       const dataStr = messageObj.data.toString();
       const dataObj = JSON.parse(dataStr);
 
@@ -154,7 +155,7 @@ wss.on('connection', function connection(ws) {
 
           const dataString = JSON.stringify(roomdata);
           const jsonString = JSON.stringify({
-            type: 'create_game',
+            type: Commands.Create_game,
             data: dataString,
             id: 0,
           });
@@ -165,7 +166,7 @@ wss.on('connection', function connection(ws) {
       }
     }
 
-    if (messageObj.type === 'add_ships') {
+    if (messageObj.type === Commands.Add_ships) {
       const dataStr = messageObj.data.toString();
       const dataObj = JSON.parse(dataStr);
 
@@ -186,7 +187,7 @@ wss.on('connection', function connection(ws) {
           };
           const dataString = JSON.stringify(data);
           const jsonStr = JSON.stringify({
-            type: 'turn',
+            type: Commands.Turn,
             data: dataString,
             id: 0,
           });
@@ -198,7 +199,7 @@ wss.on('connection', function connection(ws) {
             };
             const dataString = JSON.stringify(data);
             const jsonString = JSON.stringify({
-              type: 'start_game',
+              type: Commands.Start_game,
               data: dataString,
               id: 0,
             });
@@ -215,7 +216,7 @@ wss.on('connection', function connection(ws) {
             };
             const dataString = JSON.stringify(data);
             const jsonString = JSON.stringify({
-              type: 'start_game',
+              type: Commands.Start_game,
               data: dataString,
               id: 0,
             });
@@ -228,7 +229,7 @@ wss.on('connection', function connection(ws) {
       }
     }
 
-    if (messageObj.type === 'attack') {
+    if (messageObj.type === Commands.Attack) {
       const dataStr = messageObj.data.toString();
       const dataObj = JSON.parse(dataStr);
 
@@ -247,7 +248,7 @@ wss.on('connection', function connection(ws) {
           };
           const attackString = JSON.stringify(data);
           const jsonAttackString = JSON.stringify({
-            type: 'attack',
+            type: Commands.Attack,
             data: attackString,
             id: 0,
           });
@@ -262,7 +263,7 @@ wss.on('connection', function connection(ws) {
             };
             const dataString = JSON.stringify(data);
             const jsonString = JSON.stringify({
-              type: 'turn',
+              type: Commands.Turn,
               data: dataString,
               id: 0,
             });
@@ -289,7 +290,7 @@ wss.on('connection', function connection(ws) {
               };
               const dataString = JSON.stringify(data);
               const jsonString = JSON.stringify({
-                type: 'attack',
+                type: Commands.Attack,
                 data: dataString,
                 id: 0,
               });
@@ -308,7 +309,7 @@ wss.on('connection', function connection(ws) {
               };
               const dataString = JSON.stringify(data);
               const jsonString = JSON.stringify({
-                type: 'attack',
+                type: Commands.Attack,
                 data: dataString,
                 id: 0,
               });
@@ -331,7 +332,7 @@ wss.on('connection', function connection(ws) {
 
           const dataString = JSON.stringify(data);
           const jsonString = JSON.stringify({
-            type: 'finish',
+            type: Commands.Finish,
             data: dataString,
             id: 0,
           });
@@ -348,7 +349,7 @@ wss.on('connection', function connection(ws) {
       }
     }
 
-    if (messageObj.type === 'randomAttack') {
+    if (messageObj.type === Commands.RandomAttack) {
       const dataStr = messageObj.data.toString();
       const dataObj = JSON.parse(dataStr);
 
@@ -367,7 +368,7 @@ wss.on('connection', function connection(ws) {
           };
           const attackString = JSON.stringify(data);
           const jsonAttackString = JSON.stringify({
-            type: 'attack',
+            type: Commands.Attack,
             data: attackString,
             id: 0,
           });
@@ -382,7 +383,7 @@ wss.on('connection', function connection(ws) {
             };
             const dataString = JSON.stringify(data);
             const jsonString = JSON.stringify({
-              type: 'turn',
+              type: Commands.Turn,
               data: dataString,
               id: 0,
             });
