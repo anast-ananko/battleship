@@ -275,6 +275,33 @@ wss.on('connection', function connection(ws) {
           const player = result === 'miss' ? nextPlayer[0].id : game!.currentPlayer;
           game!.setCurrentPlayer(player!);
         }
+
+        if (game?.isFinish) {
+          const winner = usersMap.get(game!.winner!);
+
+          const numberWins = winnersMap.get(winner!.id)?.wins;
+          winnersMap.set(winner!.id, { winner: winner!, wins: numberWins! + 1 });
+
+          const data = {
+            winPlayer: winner?.id,
+          };
+
+          const dataString = JSON.stringify(data);
+          const jsonString = JSON.stringify({
+            type: 'finish',
+            data: dataString,
+            id: 0,
+          });
+
+          roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
+            const client = clients.get(item.id);
+            client.send(jsonString);
+          });
+
+          roomsMap.delete(room!.roomId);
+          updateWinners();
+          updateRooms();
+        }
       }
     }
 

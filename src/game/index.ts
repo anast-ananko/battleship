@@ -18,6 +18,11 @@ interface IField {
   field: string[][];
 }
 
+interface IShipNumber {
+  playerIndex: number;
+  ships: number;
+}
+
 enum InfoField {
   None = 'none',
   Healthy = 'healthy',
@@ -29,9 +34,12 @@ enum InfoField {
 export class BattleshipGame {
   static id = 0;
   gameId: number;
+  isFinish = false;
+  winner: number | null = null;
   currentPlayer: number | null = null;
   shipsForPlayer: IShipsPlayer[] = [];
-  fieldsForPlayer: IField[] = [];
+  private fieldsForPlayer: IField[] = [];
+  numberSunkShipsForPlayer: IShipNumber[] = [];
 
   constructor() {
     this.gameId = BattleshipGame.id;
@@ -51,7 +59,7 @@ export class BattleshipGame {
     this.createField(idPlayer, ships);
   }
 
-  createField(idPlayer: number, ships: IShipData[]): void {
+  private createField(idPlayer: number, ships: IShipData[]): void {
     const gameBoard: string[][] = new Array(10).fill(null).map(() => new Array(10).fill('none'));
 
     ships.forEach((ship) => {
@@ -83,6 +91,9 @@ export class BattleshipGame {
       fieldData!.field[y][x] = InfoField.Hit;
       if (this.checkShipKilled(fieldData!.field, x, y)) {
         fieldData!.field[y][x] = InfoField.Killed;
+
+        this.increaseShipsForPlayer(this.currentPlayer!);
+        this.checkIsFinish();
         return 'killed';
       } else {
         return 'shot';
@@ -151,6 +162,29 @@ export class BattleshipGame {
 
       const status = this.attack(x, y);
       return { status, x, y };
+    }
+  }
+
+  private increaseShipsForPlayer(playerIndex: number) {
+    const playerObj = this.numberSunkShipsForPlayer.find((obj) => obj.playerIndex === playerIndex);
+
+    if (playerObj) {
+      playerObj.ships += 1;
+    } else {
+      this.numberSunkShipsForPlayer.push({ playerIndex, ships: 1 });
+    }
+    console.log(this.numberSunkShipsForPlayer);
+  }
+
+  private checkIsFinish() {
+    const playerWinner = this.numberSunkShipsForPlayer.find((obj) => obj.ships === 10);
+
+    if (playerWinner) {
+      this.isFinish = true;
+      this.winner = playerWinner!.playerIndex;
+    } else {
+      this.isFinish = false;
+      this.winner = null;
     }
   }
 }
