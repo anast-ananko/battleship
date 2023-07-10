@@ -276,6 +276,49 @@ wss.on('connection', function connection(ws) {
           game!.setCurrentPlayer(player!);
         }
 
+        if (result === 'killed') {
+          const coords = game?.getSurroundingCoordinates(dataObj.x, dataObj.y);
+          const { surroundingCoordinates, killedCoordinates } = coords!;
+
+          roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
+            surroundingCoordinates.forEach((coord) => {
+              const data = {
+                position: { x: coord.x, y: coord.y },
+                currentPlayer: game!.currentPlayer,
+                status: 'miss',
+              };
+              const dataString = JSON.stringify(data);
+              const jsonString = JSON.stringify({
+                type: 'attack',
+                data: dataString,
+                id: 0,
+              });
+
+              const client = clients.get(item.id);
+              client.send(jsonString);
+            });
+          });
+
+          roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
+            killedCoordinates.forEach((coord) => {
+              const data = {
+                position: { x: coord.x, y: coord.y },
+                currentPlayer: game!.currentPlayer,
+                status: 'killed',
+              };
+              const dataString = JSON.stringify(data);
+              const jsonString = JSON.stringify({
+                type: 'attack',
+                data: dataString,
+                id: 0,
+              });
+
+              const client = clients.get(item.id);
+              client.send(jsonString);
+            });
+          });
+        }
+
         if (game?.isFinish) {
           const winner = usersMap.get(game!.winner!);
 

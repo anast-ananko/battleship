@@ -39,7 +39,7 @@ export class BattleshipGame {
   currentPlayer: number | null = null;
   shipsForPlayer: IShipsPlayer[] = [];
   private fieldsForPlayer: IField[] = [];
-  numberSunkShipsForPlayer: IShipNumber[] = [];
+  private numberSunkShipsForPlayer: IShipNumber[] = [];
 
   constructor() {
     this.gameId = BattleshipGame.id;
@@ -93,6 +93,7 @@ export class BattleshipGame {
         fieldData!.field[y][x] = InfoField.Killed;
 
         this.increaseShipsForPlayer(this.currentPlayer!);
+
         this.checkIsFinish();
         return 'killed';
       } else {
@@ -137,6 +138,64 @@ export class BattleshipGame {
     return dfs(x, y);
   }
 
+  getSurroundingCoordinates(
+    x: number,
+    y: number
+  ): {
+    surroundingCoordinates: { x: number; y: number }[];
+    killedCoordinates: { x: number; y: number }[];
+  } {
+    const gameBoard = this.fieldsForPlayer.find(
+      (data) => data.playerIndex !== this.currentPlayer
+    )?.field;
+
+    let surroundingCoordinates: { x: number; y: number }[] = [];
+    const killedCoordinates: { x: number; y: number }[] = [];
+    killedCoordinates.push({ x, y });
+
+    const directions = [
+      { dx: 0, dy: -1 },
+      { dx: 0, dy: 1 },
+      { dx: -1, dy: 0 },
+      { dx: 1, dy: 0 },
+      { dx: 1, dy: -1 },
+      { dx: 1, dy: 1 },
+      { dx: -1, dy: 1 },
+      { dx: -1, dy: -1 },
+    ];
+
+    const dfs = (x: number, y: number) => {
+      for (const direction of directions) {
+        const { dx, dy } = direction;
+        const adjacentX = x + dx;
+        const adjacentY = y + dy;
+
+        if (adjacentX >= 0 && adjacentX < 10 && adjacentY >= 0 && adjacentY < 10) {
+          if (gameBoard![adjacentY][adjacentX] === InfoField.Hit) {
+            gameBoard![adjacentY][adjacentX] = InfoField.Killed;
+            killedCoordinates.push({ x: adjacentX, y: adjacentY });
+
+            dfs(adjacentX, adjacentY);
+          } else {
+            surroundingCoordinates.push({ x: adjacentX, y: adjacentY });
+          }
+        }
+      }
+    };
+
+    dfs(x, y);
+
+    surroundingCoordinates = surroundingCoordinates.filter(
+      (coord, index, array) =>
+        array.findIndex((c) => c.x === coord.x && c.y === coord.y) === index &&
+        !killedCoordinates.some(
+          (killedCoord) => killedCoord.x === coord.x && killedCoord.y === coord.y
+        )
+    );
+
+    return { surroundingCoordinates, killedCoordinates };
+  }
+
   randomAttack(idPlayer: number) {
     const fieldData = this.fieldsForPlayer.find((data) => data.playerIndex !== idPlayer);
 
@@ -173,7 +232,6 @@ export class BattleshipGame {
     } else {
       this.numberSunkShipsForPlayer.push({ playerIndex, ships: 1 });
     }
-    console.log(this.numberSunkShipsForPlayer);
   }
 
   private checkIsFinish() {
