@@ -9,6 +9,7 @@ import { Commands } from '../interfaces/server';
 import { getKeyByValue } from '../utils/getKeyByValue';
 import { updateRooms } from '../utils/updateRooms';
 import { updateWinners } from '../utils/updateWinners';
+import { findRoomIdByUserId } from '../utils/findRoomByUserId';
 
 export const server = createServer({});
 export const wss = new WebSocketServer({ server });
@@ -357,6 +358,36 @@ wss.on('connection', function connection(ws) {
   ws.on('close', () => {
     const userId = getKeyByValue(clientsMap, ws);
 
+    const roomId = findRoomIdByUserId(userId, roomsMap);
+    const room = roomsMap.get(roomNumber!);
+
+    const winner = room?.roomUsers.find((item) => item.id !== userId);
+
+    if (room?.game) {
+      const numberWins = winnersMap.get(winner!.id)?.wins;
+      winnersMap.set(winner!.id, { winner: winner!, wins: numberWins! + 1 });
+
+      const data = {
+        winPlayer: winner?.id,
+      };
+
+      const dataString = JSON.stringify(data);
+      const jsonString = JSON.stringify({
+        type: Commands.Finish,
+        data: dataString,
+        id: 0,
+      });
+
+      room.roomUsers.forEach((item) => {
+        const client = clientsMap.get(item.id);
+        client.send(jsonString);
+      });
+
+      if (roomId !== undefined) {
+        roomsMap.delete(roomId);
+      }
+    }
+
     for (const [roomId, room] of roomsMap) {
       room.roomUsers = room.roomUsers.filter((user) => user.id !== userId);
       if (room.roomUsers.length === 0) {
@@ -369,9 +400,6 @@ wss.on('connection', function connection(ws) {
     clientsMap.delete(userId);
 
     updateRooms(roomsMap);
-    // for (const item of roomsMap) {
-    //   console.log(item[1].roomUsers);
-    // }
     updateWinners(winnersMap);
   });
 });
