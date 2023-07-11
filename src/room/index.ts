@@ -12,12 +12,12 @@ export class Room {
     Room.id++;
   }
 
-  createGame() {
+  createGame(): BattleshipGame {
     this.game = new BattleshipGame();
     return this.game;
   }
 
-  addUser(user: IUser) {
+  addUser(user: IUser): void {
     this.roomUsers.push(user);
   }
 }

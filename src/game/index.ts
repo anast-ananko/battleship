@@ -15,11 +15,11 @@ export class BattleshipGame {
     BattleshipGame.id++;
   }
 
-  setCurrentPlayer(id: number) {
+  setCurrentPlayer(id: number): void {
     this.currentPlayer = id;
   }
 
-  addShips(idPlayer: number, ships: IShipData[]) {
+  addShips(idPlayer: number, ships: IShipData[]): void {
     this.shipsForPlayer.push({
       playerIndex: idPlayer,
       ships,
@@ -49,24 +49,30 @@ export class BattleshipGame {
     this.fieldsForPlayer.push({ playerIndex: idPlayer, field: gameBoard });
   }
 
-  attack(x: number, y: number) {
+  attack(x: number, y: number): 'miss' | 'killed' | 'shot' | 'Already attacked' | undefined {
     const fieldData = this.fieldsForPlayer.find((data) => data.playerIndex !== this.currentPlayer);
 
     const cell = fieldData?.field[y][x];
+
     if (cell === InfoField.None) {
-      fieldData!.field[y][x] = InfoField.Miss;
+      if (fieldData) fieldData.field[y][x] = InfoField.Miss;
+
       return 'miss';
     } else if (cell === InfoField.Healthy) {
-      fieldData!.field[y][x] = InfoField.Hit;
-      if (this.checkShipKilled(fieldData!.field, x, y)) {
-        fieldData!.field[y][x] = InfoField.Killed;
+      if (fieldData) {
+        fieldData.field[y][x] = InfoField.Hit;
 
-        this.increaseShipsForPlayer(this.currentPlayer!);
+        if (this.checkShipKilled(fieldData.field, x, y)) {
+          if (fieldData) fieldData.field[y][x] = InfoField.Killed;
 
-        this.checkIsFinish();
-        return 'killed';
-      } else {
-        return 'shot';
+          if (this.currentPlayer) this.increaseShipsForPlayer(this.currentPlayer);
+
+          this.checkIsFinish();
+
+          return 'killed';
+        } else {
+          return 'shot';
+        }
       }
     } else if (cell === InfoField.Hit) {
       return 'Already attacked';
@@ -83,7 +89,7 @@ export class BattleshipGame {
       }
     }
 
-    function dfs(currX: number, currY: number): boolean {
+    const dfs = (currX: number, currY: number): boolean => {
       if (currX < 0 || currX >= 10 || currY < 0 || currY >= 10 || visited[currY][currX]) {
         return true;
       }
@@ -102,8 +108,10 @@ export class BattleshipGame {
           dfs(currX, currY - 1)
         );
       }
+
       return true;
-    }
+    };
+
     return dfs(x, y);
   }
 
@@ -133,15 +141,15 @@ export class BattleshipGame {
       { dx: -1, dy: -1 },
     ];
 
-    const dfs = (x: number, y: number) => {
+    const dfs = (currX: number, currY: number): void => {
       for (const direction of directions) {
         const { dx, dy } = direction;
-        const adjacentX = x + dx;
-        const adjacentY = y + dy;
+        const adjacentX = currX + dx;
+        const adjacentY = currY + dy;
 
         if (adjacentX >= 0 && adjacentX < 10 && adjacentY >= 0 && adjacentY < 10) {
-          if (gameBoard![adjacentY][adjacentX] === InfoField.Hit) {
-            gameBoard![adjacentY][adjacentX] = InfoField.Killed;
+          if (gameBoard && gameBoard[adjacentY][adjacentX] === InfoField.Hit) {
+            if (gameBoard) gameBoard[adjacentY][adjacentX] = InfoField.Killed;
             killedCoordinates.push({ x: adjacentX, y: adjacentY });
 
             dfs(adjacentX, adjacentY);
@@ -157,7 +165,8 @@ export class BattleshipGame {
     surroundingCoordinates = surroundingCoordinates.filter(
       (coord, index, array) =>
         array.findIndex((c) => c.x === coord.x && c.y === coord.y) === index &&
-        !killedCoordinates.some(
+        killedCoordinates &&
+        killedCoordinates.some(
           (killedCoord) => killedCoord.x === coord.x && killedCoord.y === coord.y
         )
     );
@@ -165,16 +174,24 @@ export class BattleshipGame {
     return { surroundingCoordinates, killedCoordinates };
   }
 
-  randomAttack(idPlayer: number) {
+  randomAttack(idPlayer: number):
+    | {
+        status: 'miss' | 'shot' | 'killed' | 'Already attacked' | undefined;
+        x: number;
+        y: number;
+      }
+    | undefined {
     const fieldData = this.fieldsForPlayer.find((data) => data.playerIndex !== idPlayer);
 
     const rows = fieldData?.field.length;
     const columns = fieldData?.field[0].length;
 
     const allCoordinates = [];
-    for (let i = 0; i < rows!; i++) {
-      for (let j = 0; j < columns!; j++) {
-        allCoordinates.push({ x: j, y: i });
+    if (rows && columns) {
+      for (let i = 0; i < rows; i++) {
+        for (let j = 0; j < columns; j++) {
+          allCoordinates.push({ x: j, y: i });
+        }
       }
     }
 
@@ -193,7 +210,7 @@ export class BattleshipGame {
     }
   }
 
-  private increaseShipsForPlayer(playerIndex: number) {
+  private increaseShipsForPlayer(playerIndex: number): void {
     const playerObj = this.numberSunkShipsForPlayer.find((obj) => obj.playerIndex === playerIndex);
 
     if (playerObj) {
@@ -203,12 +220,12 @@ export class BattleshipGame {
     }
   }
 
-  private checkIsFinish() {
+  private checkIsFinish(): void {
     const playerWinner = this.numberSunkShipsForPlayer.find((obj) => obj.ships === 10);
 
     if (playerWinner) {
       this.isFinish = true;
-      this.winner = playerWinner!.playerIndex;
+      this.winner = playerWinner.playerIndex;
     } else {
       this.isFinish = false;
       this.winner = null;

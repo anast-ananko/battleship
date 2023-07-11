@@ -19,10 +19,10 @@ const usersMap = new Map<number, User>();
 const winnersMap = new Map<number, IWinner>();
 
 const updateRooms = () => {
-  const data = Object.entries(roomsMap).map(([roomId, room]) => {
+  const data = Array.from(roomsMap).map((item) => {
     return {
-      roomId,
-      roomUsers: room.roomUsers.map((user: IUser) => {
+      roomId: item[1].roomId,
+      roomUsers: item[1].roomUsers.map((user: IUser) => {
         return {
           name: user.name,
           index: user.id,
