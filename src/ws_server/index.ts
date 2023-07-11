@@ -1,69 +1,23 @@
 import { createServer } from 'http';
-import WebSocket, { WebSocketServer } from 'ws';
+import { WebSocketServer } from 'ws';
 
 import { User } from '../user';
 import { Room } from '../room';
 import { BattleshipGame } from '../game';
-import { IUser } from '../interfaces/user';
 import { IWinner } from '../interfaces/winner';
 import { Commands } from '../interfaces/server';
 import { getKeyByValue } from '../utils/getKeyByValue';
+import { updateRooms } from '../utils/updateRooms';
+import { updateWinners } from '../utils/updateWinners';
 
 export const server = createServer({});
-const wss = new WebSocketServer({ server });
+export const wss = new WebSocketServer({ server });
 
 const clientsMap = new Map();
 const gamesMap = new Map<number, BattleshipGame>();
 const roomsMap = new Map<number, Room>();
 const usersMap = new Map<number, User>();
 const winnersMap = new Map<number, IWinner>();
-
-const updateRooms = () => {
-  const data = Array.from(roomsMap).map((item) => {
-    return {
-      roomId: item[1].roomId,
-      roomUsers: item[1].roomUsers.map((user: IUser) => {
-        return {
-          name: user.name,
-          index: user.id,
-        };
-      }),
-    };
-  });
-
-  const dataString = JSON.stringify(data);
-  const jsonString = JSON.stringify({
-    type: Commands.Update_room,
-    data: dataString,
-    id: 0,
-  });
-
-  wss.clients.forEach(function each(client) {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(jsonString);
-    }
-  });
-};
-
-const updateWinners = () => {
-  const data = [];
-  for (const winner of winnersMap.values()) {
-    data.push({ name: winner.winner.name, wins: winner.wins });
-  }
-
-  const dataString = JSON.stringify(data);
-  const jsonString = JSON.stringify({
-    type: Commands.Update_winners,
-    data: dataString,
-    id: 0,
-  });
-
-  wss.clients.forEach(function each(client) {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(jsonString);
-    }
-  });
-};
 
 wss.on('connection', function connection(ws) {
   let connectionNumber = 0;
@@ -112,8 +66,8 @@ wss.on('connection', function connection(ws) {
 
       ws.send(jsonString);
 
-      updateRooms();
-      updateWinners();
+      updateRooms(roomsMap);
+      updateWinners(winnersMap);
     }
 
     if (messageObj.type === Commands.Create_room) {
@@ -123,8 +77,8 @@ wss.on('connection', function connection(ws) {
       roomNumber = room.roomId;
       roomsMap.set(roomNumber, room);
 
-      updateRooms();
-      updateWinners();
+      updateRooms(roomsMap);
+      updateWinners(winnersMap);
     }
 
     if (messageObj.type === Commands.Add_user_to_room) {
@@ -343,8 +297,8 @@ wss.on('connection', function connection(ws) {
           });
 
           roomsMap.delete(room!.roomId);
-          updateWinners();
-          updateRooms();
+          updateWinners(winnersMap);
+          updateRooms(roomsMap);
         }
       }
     }
@@ -414,7 +368,10 @@ wss.on('connection', function connection(ws) {
     winnersMap.delete(userId);
     clientsMap.delete(userId);
 
-    updateRooms();
-    updateWinners();
+    updateRooms(roomsMap);
+    // for (const item of roomsMap) {
+    //   console.log(item[1].roomUsers);
+    // }
+    updateWinners(winnersMap);
   });
 });
