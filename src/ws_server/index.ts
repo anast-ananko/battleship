@@ -194,6 +194,9 @@ wss.on('connection', function connection(ws) {
         const room = roomsMap.get(dataObj.gameId);
 
         const result = game?.attack(dataObj.x, dataObj.y);
+        const nextPlayer = roomsMap.get(room!.roomId)!.roomUsers.filter((item) => {
+          return item.id !== game?.currentPlayer;
+        });
 
         if (result !== 'Already attacked') {
           const data = {
@@ -208,8 +211,9 @@ wss.on('connection', function connection(ws) {
             id: 0,
           });
 
-          const nextPlayer = roomsMap.get(room!.roomId)!.roomUsers.filter((item) => {
-            return item.id !== game?.currentPlayer;
+          roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
+            const client = clientsMap.get(item.id);
+            client.send(jsonAttackString);
           });
 
           roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
@@ -224,11 +228,30 @@ wss.on('connection', function connection(ws) {
             });
 
             const client = clientsMap.get(item.id);
-            client.send(jsonAttackString);
+
             client.send(jsonString);
           });
 
           const player = result === 'miss' ? nextPlayer[0].id : game!.currentPlayer;
+          game!.setCurrentPlayer(player!);
+        } else {
+          roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
+            const data = {
+              currentPlayer: game!.currentPlayer,
+            };
+            const dataString = JSON.stringify(data);
+            const jsonString = JSON.stringify({
+              type: Commands.Turn,
+              data: dataString,
+              id: 0,
+            });
+
+            const client = clientsMap.get(item.id);
+
+            client.send(jsonString);
+          });
+
+          const player = game!.currentPlayer;
           game!.setCurrentPlayer(player!);
         }
 

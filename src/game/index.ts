@@ -65,8 +65,9 @@ export class BattleshipGame {
         if (this.checkShipKilled(fieldData.field, x, y)) {
           if (fieldData) fieldData.field[y][x] = InfoField.Killed;
 
-          //if (this.currentPlayer) this.increaseShipsForPlayer(this.currentPlayer);
-          this.increaseShipsForPlayer(this.currentPlayer!);
+          if (this.currentPlayer !== null) {
+            this.increaseShipsForPlayer(this.currentPlayer);
+          }
 
           this.checkIsFinish();
 
@@ -75,7 +76,7 @@ export class BattleshipGame {
           return 'shot';
         }
       }
-    } else if (cell === InfoField.Hit) {
+    } else {
       return 'Already attacked';
     }
   }
@@ -171,6 +172,10 @@ export class BattleshipGame {
         )
     );
 
+    surroundingCoordinates.forEach((coord) => {
+      this.fieldsForPlayer[this.currentPlayer!].field[coord.y][coord.x] = 'miss';
+    });
+
     return { surroundingCoordinates, killedCoordinates };
   }
 
@@ -218,7 +223,6 @@ export class BattleshipGame {
     } else {
       this.numberSunkShipsForPlayer.push({ playerIndex, ships: 1 });
     }
-    //console.log(this.numberSunkShipsForPlayer);
   }
 
   private checkIsFinish(): void {
