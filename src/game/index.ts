@@ -173,7 +173,9 @@ export class BattleshipGame {
     );
 
     surroundingCoordinates.forEach((coord) => {
-      this.fieldsForPlayer[this.currentPlayer!].field[coord.y][coord.x] = 'miss';
+      if (this.currentPlayer !== null) {
+        this.fieldsForPlayer[this.currentPlayer].field[coord.y][coord.x] = 'miss';
+      }
     });
 
     return { surroundingCoordinates, killedCoordinates };

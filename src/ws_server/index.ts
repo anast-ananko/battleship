@@ -35,10 +35,17 @@ wss.on('connection', function connection(ws) {
       const dataObj = JSON.parse(dataStr);
 
       let userExists = false;
+      let isError = false;
+      let errorMessage = '';
 
       for (const user of usersMap.values()) {
         if (user.name === dataObj.name) {
           userExists = true;
+          if (user.password !== dataObj.password) {
+            errorMessage = 'Invalid password';
+
+            isError = true;
+          }
         }
       }
 
@@ -54,8 +61,8 @@ wss.on('connection', function connection(ws) {
       const newData = {
         name: dataObj.name,
         index: dataObj.password,
-        error: userExists,
-        errorText: userExists ? 'User with the same name already exists' : '',
+        error: isError,
+        errorText: errorMessage,
       };
 
       const dataString = JSON.stringify(newData);
@@ -418,7 +425,6 @@ wss.on('connection', function connection(ws) {
       }
     }
 
-    usersMap.delete(userId);
     winnersMap.delete(userId);
     clientsMap.delete(userId);
 
