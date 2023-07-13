@@ -43,6 +43,7 @@ wss.on('connection', function connection(ws) {
         if (user.name === dataObj.name) {
           userExists = true;
           currentUser = user;
+
           if (user.password !== dataObj.password) {
             errorMessage = 'Invalid password';
 
@@ -158,6 +159,7 @@ wss.on('connection', function connection(ws) {
             const data = {
               currentPlayer: gameRoom.roomUsers[0].id,
             };
+
             const dataString = JSON.stringify(data);
             const jsonStr = JSON.stringify({
               type: Commands.Turn,
@@ -253,7 +255,6 @@ wss.on('connection', function connection(ws) {
                 });
 
                 const client = clientsMap.get(item.id);
-
                 client.send(jsonString);
               }
             });
@@ -277,7 +278,6 @@ wss.on('connection', function connection(ws) {
                 });
 
                 const client = clientsMap.get(item.id);
-
                 client.send(jsonString);
               }
             });
@@ -294,6 +294,7 @@ wss.on('connection', function connection(ws) {
 
           let surroundingCoordinates: { x: number; y: number }[];
           let killedCoordinates: { x: number; y: number }[];
+
           if (coords) {
             ({ surroundingCoordinates, killedCoordinates } = coords);
           }
@@ -380,6 +381,7 @@ wss.on('connection', function connection(ws) {
                 updateRooms(roomsMap);
               }
             }
+
             gamesMap.delete(game.gameId);
           }
         }
