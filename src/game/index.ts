@@ -7,7 +7,7 @@ export class BattleshipGame {
   winner: number | null = null;
   currentPlayer: number | null = null;
   shipsForPlayer: IShipsPlayer[] = [];
-  private fieldsForPlayer: IField[] = [];
+  fieldsForPlayer: IField[] = [];
   private numberSunkShipsForPlayer: IShipNumber[] = [];
 
   constructor() {
@@ -173,9 +173,15 @@ export class BattleshipGame {
     );
 
     surroundingCoordinates.forEach((coord) => {
-      if (this.currentPlayer !== null) {
-        this.fieldsForPlayer[this.currentPlayer].field[coord.y][coord.x] = 'miss';
-      }
+      let playerId;
+
+      this.fieldsForPlayer.forEach((item, index) => {
+        if (item.playerIndex !== this.currentPlayer) {
+          playerId = index;
+        }
+      });
+
+      if (playerId !== undefined) this.fieldsForPlayer[playerId].field[coord.y][coord.x] = 'miss';
     });
 
     return { surroundingCoordinates, killedCoordinates };

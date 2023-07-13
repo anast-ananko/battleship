@@ -37,10 +37,12 @@ wss.on('connection', function connection(ws) {
       let userExists = false;
       let isError = false;
       let errorMessage = '';
+      let currentUser;
 
       for (const user of usersMap.values()) {
         if (user.name === dataObj.name) {
           userExists = true;
+          currentUser = user;
           if (user.password !== dataObj.password) {
             errorMessage = 'Invalid password';
 
@@ -50,12 +52,15 @@ wss.on('connection', function connection(ws) {
       }
 
       if (!userExists) {
-        const user = new User(dataObj.name, dataObj.password);
-        usersMap.set(user.id, user);
-        winnersMap.set(user.id, { winner: user, wins: 0 });
+        currentUser = new User(dataObj.name, dataObj.password);
+        usersMap.set(currentUser.id, currentUser);
+        winnersMap.set(currentUser.id, { winner: currentUser, wins: 0 });
+      }
 
-        connectionNumber = user.id;
-        clientsMap.set(connectionNumber, ws);
+      clientsMap.set(currentUser?.id, ws);
+
+      if (currentUser) {
+        connectionNumber = currentUser.id;
       }
 
       const newData = {
@@ -93,38 +98,46 @@ wss.on('connection', function connection(ws) {
       const dataStr = messageObj.data.toString();
       const dataObj = JSON.parse(dataStr);
 
-      if (roomsMap.get(dataObj.indexRoom)!.roomUsers.length < 2) {
-        const roomUsers = roomsMap.get(dataObj.indexRoom)!.roomUsers;
-        const existingUser = roomUsers.find(
-          (user) => user.id === usersMap.get(connectionNumber)?.id
-        );
+      const gameRoom = roomsMap.get(dataObj.indexRoom);
 
-        if (!existingUser) {
-          const user = usersMap.get(connectionNumber);
-          if (user) roomsMap.get(dataObj.indexRoom)!.addUser(user);
+      if (gameRoom) {
+        if (gameRoom.roomUsers.length < 2) {
+          const existingUser = gameRoom.roomUsers.find(
+            (user) => user.id === usersMap.get(connectionNumber)?.id
+          );
+
+          if (!existingUser) {
+            const user = usersMap.get(connectionNumber);
+            if (user) gameRoom.addUser(user);
+          }
         }
-      }
 
-      if (roomsMap.get(dataObj.indexRoom)!.roomUsers.length === 2) {
-        const game = roomsMap.get(dataObj.indexRoom)!.createGame();
-        gamesMap.set(game.gameId, game);
+        if (gameRoom.roomUsers.length === 2) {
+          const game = gameRoom.createGame();
 
-        roomsMap.get(dataObj.indexRoom)!.roomUsers.forEach((item) => {
-          const roomdata = {
-            idGame: game.gameId,
-            idPlayer: item.id,
-          };
+          gamesMap.set(game.gameId, game);
 
-          const dataString = JSON.stringify(roomdata);
-          const jsonString = JSON.stringify({
-            type: Commands.Create_game,
-            data: dataString,
-            id: 0,
-          });
+          const room = roomsMap.get(dataObj.indexRoom);
 
-          const client = clientsMap.get(item.id);
-          client.send(jsonString);
-        });
+          if (room) {
+            room.roomUsers.forEach((item) => {
+              const roomdata = {
+                idGame: game.gameId,
+                idPlayer: item.id,
+              };
+
+              const dataString = JSON.stringify(roomdata);
+              const jsonString = JSON.stringify({
+                type: Commands.Create_game,
+                data: dataString,
+                id: 0,
+              });
+
+              const client = clientsMap.get(item.id);
+              client.send(jsonString);
+            });
+          }
+        }
       }
     }
 
@@ -132,62 +145,61 @@ wss.on('connection', function connection(ws) {
       const dataStr = messageObj.data.toString();
       const dataObj = JSON.parse(dataStr);
 
-      const room = roomsMap.get(dataObj.gameId);
+      const gameRoom = roomsMap.get(dataObj.gameId);
 
       const game = gamesMap.get(dataObj.gameId);
       game?.addShips(dataObj.indexPlayer, dataObj.ships);
 
       if (game?.shipsForPlayer.length === 2) {
-        const game = gamesMap.get(dataObj.gameId);
-        game!.currentPlayer = dataObj.indexPlayer;
+        if (game) game.currentPlayer = dataObj.indexPlayer;
 
-        const gameRoomId = room!.roomId;
+        if (gameRoom) {
+          gameRoom.roomUsers.forEach((item) => {
+            const data = {
+              currentPlayer: gameRoom.roomUsers[0].id,
+            };
+            const dataString = JSON.stringify(data);
+            const jsonStr = JSON.stringify({
+              type: Commands.Turn,
+              data: dataString,
+              id: 0,
+            });
 
-        roomsMap.get(gameRoomId)!.roomUsers.forEach((item) => {
-          const data = {
-            currentPlayer: roomsMap.get(gameRoomId)!.roomUsers[0].id,
-          };
-          const dataString = JSON.stringify(data);
-          const jsonStr = JSON.stringify({
-            type: Commands.Turn,
-            data: dataString,
-            id: 0,
+            if (item.id === game?.shipsForPlayer[0].playerIndex) {
+              const data = {
+                ships: game?.shipsForPlayer[0].ships,
+                currentPlayerIndex: item.id,
+              };
+              const dataString = JSON.stringify(data);
+              const jsonString = JSON.stringify({
+                type: Commands.Start_game,
+                data: dataString,
+                id: 0,
+              });
+
+              const client = clientsMap.get(item.id);
+              client.send(jsonString);
+              client.send(jsonStr);
+            }
+
+            if (item.id === game?.shipsForPlayer[1].playerIndex) {
+              const data = {
+                ships: game?.shipsForPlayer[1].ships,
+                currentPlayerIndex: item.id,
+              };
+              const dataString = JSON.stringify(data);
+              const jsonString = JSON.stringify({
+                type: Commands.Start_game,
+                data: dataString,
+                id: 0,
+              });
+
+              const client = clientsMap.get(item.id);
+              client.send(jsonString);
+              client.send(jsonStr);
+            }
           });
-
-          if (item.id === game?.shipsForPlayer[0].playerIndex) {
-            const data = {
-              ships: game?.shipsForPlayer[0].ships,
-              currentPlayerIndex: item.id,
-            };
-            const dataString = JSON.stringify(data);
-            const jsonString = JSON.stringify({
-              type: Commands.Start_game,
-              data: dataString,
-              id: 0,
-            });
-
-            const client = clientsMap.get(item.id);
-            client.send(jsonString);
-            client.send(jsonStr);
-          }
-
-          if (item.id === game?.shipsForPlayer[1].playerIndex) {
-            const data = {
-              ships: game?.shipsForPlayer[1].ships,
-              currentPlayerIndex: item.id,
-            };
-            const dataString = JSON.stringify(data);
-            const jsonString = JSON.stringify({
-              type: Commands.Start_game,
-              data: dataString,
-              id: 0,
-            });
-
-            const client = clientsMap.get(item.id);
-            client.send(jsonString);
-            client.send(jsonStr);
-          }
-        });
+        }
       }
     }
 
@@ -198,138 +210,178 @@ wss.on('connection', function connection(ws) {
       const game = gamesMap.get(dataObj.gameId);
 
       if (game?.currentPlayer === dataObj.indexPlayer) {
-        const room = roomsMap.get(dataObj.gameId);
+        const gameRoom = roomsMap.get(dataObj.gameId);
 
         const result = game?.attack(dataObj.x, dataObj.y);
-        const nextPlayer = roomsMap.get(room!.roomId)!.roomUsers.filter((item) => {
-          return item.id !== game?.currentPlayer;
-        });
-
-        if (result !== 'Already attacked') {
-          const data = {
-            position: { x: dataObj.x, y: dataObj.y },
-            currentPlayer: game!.currentPlayer,
-            status: result,
-          };
-          const attackString = JSON.stringify(data);
-          const jsonAttackString = JSON.stringify({
-            type: Commands.Attack,
-            data: attackString,
-            id: 0,
+        if (gameRoom) {
+          const nextPlayer = gameRoom.roomUsers.filter((item) => {
+            return item.id !== game?.currentPlayer;
           });
 
-          roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
-            const client = clientsMap.get(item.id);
-            client.send(jsonAttackString);
-          });
+          if (result !== 'Already attacked') {
+            if (game) {
+              const data = {
+                position: { x: dataObj.x, y: dataObj.y },
+                currentPlayer: game.currentPlayer,
+                status: result,
+              };
 
-          roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
-            const data = {
-              currentPlayer: result === 'miss' ? nextPlayer[0].id : game!.currentPlayer,
-            };
-            const dataString = JSON.stringify(data);
-            const jsonString = JSON.stringify({
-              type: Commands.Turn,
-              data: dataString,
-              id: 0,
+              const attackString = JSON.stringify(data);
+              const jsonAttackString = JSON.stringify({
+                type: Commands.Attack,
+                data: attackString,
+                id: 0,
+              });
+
+              gameRoom.roomUsers.forEach((item) => {
+                const client = clientsMap.get(item.id);
+                client.send(jsonAttackString);
+              });
+            }
+
+            gameRoom.roomUsers.forEach((item) => {
+              if (game) {
+                const data = {
+                  currentPlayer: result === 'miss' ? nextPlayer[0].id : game.currentPlayer,
+                };
+
+                const dataString = JSON.stringify(data);
+                const jsonString = JSON.stringify({
+                  type: Commands.Turn,
+                  data: dataString,
+                  id: 0,
+                });
+
+                const client = clientsMap.get(item.id);
+
+                client.send(jsonString);
+              }
             });
 
-            const client = clientsMap.get(item.id);
+            if (game) {
+              const player = result === 'miss' ? nextPlayer[0].id : game.currentPlayer;
+              if (player !== null) game.setCurrentPlayer(player);
+            }
+          } else {
+            gameRoom.roomUsers.forEach((item) => {
+              if (game) {
+                const data = {
+                  currentPlayer: game.currentPlayer,
+                };
 
-            client.send(jsonString);
-          });
+                const dataString = JSON.stringify(data);
+                const jsonString = JSON.stringify({
+                  type: Commands.Turn,
+                  data: dataString,
+                  id: 0,
+                });
 
-          const player = result === 'miss' ? nextPlayer[0].id : game!.currentPlayer;
-          game!.setCurrentPlayer(player!);
-        } else {
-          roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
-            const data = {
-              currentPlayer: game!.currentPlayer,
-            };
-            const dataString = JSON.stringify(data);
-            const jsonString = JSON.stringify({
-              type: Commands.Turn,
-              data: dataString,
-              id: 0,
+                const client = clientsMap.get(item.id);
+
+                client.send(jsonString);
+              }
             });
 
-            const client = clientsMap.get(item.id);
-
-            client.send(jsonString);
-          });
-
-          const player = game!.currentPlayer;
-          game!.setCurrentPlayer(player!);
+            if (game) {
+              const player = game.currentPlayer;
+              if (player !== null) game.setCurrentPlayer(player);
+            }
+          }
         }
 
         if (result === 'killed') {
           const coords = game?.getSurroundingCoordinates(dataObj.x, dataObj.y);
-          const { surroundingCoordinates, killedCoordinates } = coords!;
 
-          roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
-            surroundingCoordinates.forEach((coord) => {
-              const data = {
-                position: { x: coord.x, y: coord.y },
-                currentPlayer: game!.currentPlayer,
-                status: 'miss',
-              };
-              const dataString = JSON.stringify(data);
-              const jsonString = JSON.stringify({
-                type: Commands.Attack,
-                data: dataString,
-                id: 0,
+          let surroundingCoordinates: { x: number; y: number }[];
+          let killedCoordinates: { x: number; y: number }[];
+          if (coords) {
+            ({ surroundingCoordinates, killedCoordinates } = coords);
+          }
+
+          if (gameRoom) {
+            gameRoom.roomUsers.forEach((item) => {
+              surroundingCoordinates.forEach((coord) => {
+                if (game) {
+                  const data = {
+                    position: { x: coord.x, y: coord.y },
+                    currentPlayer: game.currentPlayer,
+                    status: 'miss',
+                  };
+
+                  const dataString = JSON.stringify(data);
+                  const jsonString = JSON.stringify({
+                    type: Commands.Attack,
+                    data: dataString,
+                    id: 0,
+                  });
+
+                  const client = clientsMap.get(item.id);
+                  client.send(jsonString);
+                }
               });
-
-              const client = clientsMap.get(item.id);
-              client.send(jsonString);
             });
-          });
 
-          roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
-            killedCoordinates.forEach((coord) => {
-              const data = {
-                position: { x: coord.x, y: coord.y },
-                currentPlayer: game!.currentPlayer,
-                status: 'killed',
-              };
-              const dataString = JSON.stringify(data);
-              const jsonString = JSON.stringify({
-                type: Commands.Attack,
-                data: dataString,
-                id: 0,
+            gameRoom.roomUsers.forEach((item) => {
+              killedCoordinates.forEach((coord) => {
+                if (game) {
+                  const data = {
+                    position: { x: coord.x, y: coord.y },
+                    currentPlayer: game.currentPlayer,
+                    status: 'killed',
+                  };
+
+                  const dataString = JSON.stringify(data);
+                  const jsonString = JSON.stringify({
+                    type: Commands.Attack,
+                    data: dataString,
+                    id: 0,
+                  });
+
+                  const client = clientsMap.get(item.id);
+                  client.send(jsonString);
+                }
               });
-
-              const client = clientsMap.get(item.id);
-              client.send(jsonString);
             });
-          });
+          }
         }
 
-        if (game?.isFinish) {
-          const winner = usersMap.get(game!.winner!);
+        if (game) {
+          if (game.isFinish) {
+            const gameWinner = game.winner;
 
-          const numberWins = winnersMap.get(winner!.id)?.wins;
-          winnersMap.set(winner!.id, { winner: winner!, wins: numberWins! + 1 });
+            let winner;
+            if (gameWinner !== null) winner = usersMap.get(gameWinner);
 
-          const data = {
-            winPlayer: winner?.id,
-          };
+            if (winner) {
+              const numberWins = winnersMap.get(winner.id)?.wins;
 
-          const dataString = JSON.stringify(data);
-          const jsonString = JSON.stringify({
-            type: Commands.Finish,
-            data: dataString,
-            id: 0,
-          });
+              if (numberWins !== undefined)
+                winnersMap.set(winner.id, { winner: winner, wins: numberWins + 1 });
 
-          roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
-            const client = clientsMap.get(item.id);
-            client.send(jsonString);
-          });
+              const data = {
+                winPlayer: winner.id,
+              };
 
-          roomsMap.delete(room!.roomId);
-          updateWinners(winnersMap);
-          updateRooms(roomsMap);
+              const dataString = JSON.stringify(data);
+              const jsonString = JSON.stringify({
+                type: Commands.Finish,
+                data: dataString,
+                id: 0,
+              });
+
+              if (gameRoom) {
+                gameRoom.roomUsers.forEach((item) => {
+                  const client = clientsMap.get(item.id);
+                  client.send(jsonString);
+                });
+
+                roomsMap.delete(gameRoom.roomId);
+                updateWinners(winnersMap);
+                updateRooms(roomsMap);
+              }
+            }
+            gamesMap.delete(game.gameId);
+          }
         }
       }
     }
@@ -340,46 +392,57 @@ wss.on('connection', function connection(ws) {
 
       const game = gamesMap.get(dataObj.gameId);
 
-      if (game?.currentPlayer === dataObj.indexPlayer) {
-        const room = roomsMap.get(dataObj.gameId);
+      if (game) {
+        if (game.currentPlayer === dataObj.indexPlayer) {
+          const room = roomsMap.get(dataObj.gameId);
 
-        const result = game?.randomAttack(dataObj.indexPlayer);
+          const result = game.randomAttack(dataObj.indexPlayer);
 
-        if (result!.status !== 'Already attacked') {
-          const data = {
-            position: { x: result!.x, y: result!.y },
-            currentPlayer: game!.currentPlayer,
-            status: result!.status,
-          };
-          const attackString = JSON.stringify(data);
-          const jsonAttackString = JSON.stringify({
-            type: Commands.Attack,
-            data: attackString,
-            id: 0,
-          });
+          if (result) {
+            if (result.status !== 'Already attacked') {
+              const data = {
+                position: { x: result.x, y: result.y },
+                currentPlayer: game.currentPlayer,
 
-          const nextPlayer = roomsMap.get(room!.roomId)!.roomUsers.filter((item) => {
-            return item.id !== game?.currentPlayer;
-          });
+                status: result.status,
+              };
+              const attackString = JSON.stringify(data);
+              const jsonAttackString = JSON.stringify({
+                type: Commands.Attack,
+                data: attackString,
+                id: 0,
+              });
 
-          roomsMap.get(room!.roomId)!.roomUsers.forEach((item) => {
-            const data = {
-              currentPlayer: result!.status === 'miss' ? nextPlayer[0].id : game!.currentPlayer,
-            };
-            const dataString = JSON.stringify(data);
-            const jsonString = JSON.stringify({
-              type: Commands.Turn,
-              data: dataString,
-              id: 0,
-            });
+              let gameRoom;
+              if (room) gameRoom = roomsMap.get(room.roomId);
 
-            const client = clientsMap.get(item.id);
-            client.send(jsonAttackString);
-            client.send(jsonString);
-          });
+              if (gameRoom) {
+                const nextPlayer = gameRoom.roomUsers.filter((item) => {
+                  return item.id !== game.currentPlayer;
+                });
 
-          const player = result?.status === 'miss' ? nextPlayer[0].id : game!.currentPlayer;
-          game!.setCurrentPlayer(player!);
+                gameRoom.roomUsers.forEach((item) => {
+                  const data = {
+                    currentPlayer: result.status === 'miss' ? nextPlayer[0].id : game.currentPlayer,
+                  };
+                  const dataString = JSON.stringify(data);
+                  const jsonString = JSON.stringify({
+                    type: Commands.Turn,
+                    data: dataString,
+                    id: 0,
+                  });
+
+                  const client = clientsMap.get(item.id);
+                  client.send(jsonAttackString);
+                  client.send(jsonString);
+                });
+
+                const player = result.status === 'miss' ? nextPlayer[0].id : game.currentPlayer;
+
+                if (player !== null) game.setCurrentPlayer(player);
+              }
+            }
+          }
         }
       }
     }
@@ -389,29 +452,35 @@ wss.on('connection', function connection(ws) {
     const userId = getKeyByValue(clientsMap, ws);
 
     const roomId = findRoomIdByUserId(userId, roomsMap);
-    const room = roomsMap.get(roomNumber!);
+
+    let room;
+    if (roomId !== undefined) room = roomsMap.get(roomId);
 
     const winner = room?.roomUsers.find((item) => item.id !== userId);
 
     if (room?.game) {
-      const numberWins = winnersMap.get(winner!.id)?.wins;
-      winnersMap.set(winner!.id, { winner: winner!, wins: numberWins! + 1 });
+      if (winner) {
+        const numberWins = winnersMap.get(winner.id)?.wins;
 
-      const data = {
-        winPlayer: winner?.id,
-      };
+        if (numberWins !== undefined)
+          winnersMap.set(winner.id, { winner: winner, wins: numberWins + 1 });
 
-      const dataString = JSON.stringify(data);
-      const jsonString = JSON.stringify({
-        type: Commands.Finish,
-        data: dataString,
-        id: 0,
-      });
+        const data = {
+          winPlayer: winner?.id,
+        };
 
-      room.roomUsers.forEach((item) => {
-        const client = clientsMap.get(item.id);
-        client.send(jsonString);
-      });
+        const dataString = JSON.stringify(data);
+        const jsonString = JSON.stringify({
+          type: Commands.Finish,
+          data: dataString,
+          id: 0,
+        });
+
+        room.roomUsers.forEach((item) => {
+          const client = clientsMap.get(item.id);
+          client.send(jsonString);
+        });
+      }
 
       if (roomId !== undefined) {
         roomsMap.delete(roomId);
@@ -425,7 +494,6 @@ wss.on('connection', function connection(ws) {
       }
     }
 
-    winnersMap.delete(userId);
     clientsMap.delete(userId);
 
     updateRooms(roomsMap);
