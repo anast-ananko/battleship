@@ -5,6 +5,7 @@
     "main": "./src/index.ts",
     "scripts": {
         "start:dev": "cross-env NODE_ENV=development nodemon",
+        "start": "cross-env NODE_ENV=production webpack && node ./dist/bundle.js",
         "lint": "eslint \"./**/*.ts\""
     },
     "author": "Andrei Auchynnikau",
