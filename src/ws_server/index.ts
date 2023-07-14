@@ -10,6 +10,7 @@ import { getKeyByValue } from '../utils/getKeyByValue';
 import { updateRooms } from '../utils/updateRooms';
 import { updateWinners } from '../utils/updateWinners';
 import { findRoomIdByUserId } from '../utils/findRoomByUserId';
+import { findRoomIdByGameId } from '../utils/findRoomByGameId';
 
 export const server = createServer({});
 export const wss = new WebSocketServer({ server });
@@ -146,7 +147,9 @@ wss.on('connection', function connection(ws) {
       const dataStr = messageObj.data.toString();
       const dataObj = JSON.parse(dataStr);
 
-      const gameRoom = roomsMap.get(dataObj.gameId);
+      const roomNumber = findRoomIdByGameId(dataObj.gameId, roomsMap);
+
+      const gameRoom = roomsMap.get(roomNumber!);
 
       const game = gamesMap.get(dataObj.gameId);
       game?.addShips(dataObj.indexPlayer, dataObj.ships);
@@ -172,6 +175,7 @@ wss.on('connection', function connection(ws) {
                 ships: game?.shipsForPlayer[0].ships,
                 currentPlayerIndex: item.id,
               };
+
               const dataString = JSON.stringify(data);
               const jsonString = JSON.stringify({
                 type: Commands.Start_game,
@@ -189,6 +193,7 @@ wss.on('connection', function connection(ws) {
                 ships: game?.shipsForPlayer[1].ships,
                 currentPlayerIndex: item.id,
               };
+
               const dataString = JSON.stringify(data);
               const jsonString = JSON.stringify({
                 type: Commands.Start_game,
@@ -212,9 +217,12 @@ wss.on('connection', function connection(ws) {
       const game = gamesMap.get(dataObj.gameId);
 
       if (game?.currentPlayer === dataObj.indexPlayer) {
-        const gameRoom = roomsMap.get(dataObj.gameId);
+        const roomNumber = findRoomIdByGameId(dataObj.gameId, roomsMap);
+
+        const gameRoom = roomsMap.get(roomNumber!);
 
         const result = game?.attack(dataObj.x, dataObj.y);
+
         if (gameRoom) {
           const nextPlayer = gameRoom.roomUsers.filter((item) => {
             return item.id !== game?.currentPlayer;
@@ -396,7 +404,9 @@ wss.on('connection', function connection(ws) {
 
       if (game) {
         if (game.currentPlayer === dataObj.indexPlayer) {
-          const room = roomsMap.get(dataObj.gameId);
+          const roomNumber = findRoomIdByGameId(dataObj.gameId, roomsMap);
+
+          const room = roomsMap.get(roomNumber!);
 
           const result = game.randomAttack(dataObj.indexPlayer);
 
@@ -443,6 +453,29 @@ wss.on('connection', function connection(ws) {
 
                 if (player !== null) game.setCurrentPlayer(player);
               }
+            }
+          } else {
+            room!.roomUsers.forEach((item) => {
+              if (game) {
+                const data = {
+                  currentPlayer: game.currentPlayer,
+                };
+
+                const dataString = JSON.stringify(data);
+                const jsonString = JSON.stringify({
+                  type: Commands.Turn,
+                  data: dataString,
+                  id: 0,
+                });
+
+                const client = clientsMap.get(item.id);
+                client.send(jsonString);
+              }
+            });
+
+            if (game) {
+              const player = game.currentPlayer;
+              if (player !== null) game.setCurrentPlayer(player);
             }
           }
         }
