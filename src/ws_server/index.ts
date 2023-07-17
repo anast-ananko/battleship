@@ -30,6 +30,7 @@ wss.on('connection', function connection(ws) {
   ws.on('message', function message(message) {
     const messageStr = message.toString();
     const messageObj = JSON.parse(messageStr);
+    console.log(`Received command: ${messageObj.type}`);
 
     if (messageObj.type === Commands.Reg) {
       const dataStr = messageObj.data.toString();
@@ -80,6 +81,7 @@ wss.on('connection', function connection(ws) {
       });
 
       ws.send(jsonString);
+      console.log(`Sent command: ${Commands.Reg}`);
 
       updateRooms(roomsMap);
       updateWinners(winnersMap);
@@ -137,6 +139,7 @@ wss.on('connection', function connection(ws) {
 
               const client = clientsMap.get(item.id);
               client.send(jsonString);
+              console.log(`Sent command: ${Commands.Create_game}`);
             });
           }
         }
@@ -185,7 +188,9 @@ wss.on('connection', function connection(ws) {
 
               const client = clientsMap.get(item.id);
               client.send(jsonString);
+              console.log(`Sent command: ${Commands.Start_game}`);
               client.send(jsonStr);
+              console.log(`Sent command: ${Commands.Turn}`);
             }
 
             if (item.id === game?.shipsForPlayer[1].playerIndex) {
@@ -203,7 +208,9 @@ wss.on('connection', function connection(ws) {
 
               const client = clientsMap.get(item.id);
               client.send(jsonString);
+              console.log(`Sent command: ${Commands.Start_game}`);
               client.send(jsonStr);
+              console.log(`Sent command: ${Commands.Turn}`);
             }
           });
         }
@@ -246,6 +253,7 @@ wss.on('connection', function connection(ws) {
               gameRoom.roomUsers.forEach((item) => {
                 const client = clientsMap.get(item.id);
                 client.send(jsonAttackString);
+                console.log(`Sent command: ${Commands.Attack}`);
               });
             }
 
@@ -264,6 +272,7 @@ wss.on('connection', function connection(ws) {
 
                 const client = clientsMap.get(item.id);
                 client.send(jsonString);
+                console.log(`Sent command: ${Commands.Turn}`);
               }
             });
 
@@ -287,6 +296,7 @@ wss.on('connection', function connection(ws) {
 
                 const client = clientsMap.get(item.id);
                 client.send(jsonString);
+                console.log(`Sent command: ${Commands.Turn}`);
               }
             });
 
@@ -326,6 +336,7 @@ wss.on('connection', function connection(ws) {
 
                   const client = clientsMap.get(item.id);
                   client.send(jsonString);
+                  console.log(`Sent command: ${Commands.Attack}`);
                 }
               });
             });
@@ -348,6 +359,7 @@ wss.on('connection', function connection(ws) {
 
                   const client = clientsMap.get(item.id);
                   client.send(jsonString);
+                  console.log(`Sent command: ${Commands.Attack}`);
                 }
               });
             });
@@ -382,6 +394,7 @@ wss.on('connection', function connection(ws) {
                 gameRoom.roomUsers.forEach((item) => {
                   const client = clientsMap.get(item.id);
                   client.send(jsonString);
+                  console.log(`Sent command: ${Commands.Finish}`);
                 });
 
                 roomsMap.delete(gameRoom.roomId);
@@ -446,7 +459,9 @@ wss.on('connection', function connection(ws) {
 
                   const client = clientsMap.get(item.id);
                   client.send(jsonAttackString);
+                  console.log(`Sent command: ${Commands.Attack}`);
                   client.send(jsonString);
+                  console.log(`Sent command: ${Commands.Turn}`);
                 });
 
                 const player = result.status === 'miss' ? nextPlayer[0].id : game.currentPlayer;
@@ -470,6 +485,7 @@ wss.on('connection', function connection(ws) {
 
                 const client = clientsMap.get(item.id);
                 client.send(jsonString);
+                console.log(`Sent command: ${Commands.Turn}`);
               }
             });
 
@@ -514,6 +530,7 @@ wss.on('connection', function connection(ws) {
         room.roomUsers.forEach((item) => {
           const client = clientsMap.get(item.id);
           client.send(jsonString);
+          console.log(`Sent command: ${Commands.Finish}`);
         });
       }
 
